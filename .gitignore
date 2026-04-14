@@ -3,4 +3,4 @@
 *.bak
 *.bak-*
 node_modules/
-obsidian-vault/
+/obsidian-vault/
