@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,6 +20,28 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - name: Validate required secrets
+        shell: bash
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_REPO_PATH: ${{ secrets.VPS_REPO_PATH }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for secret_name in VPS_SSH_PRIVATE_KEY VPS_SSH_HOST VPS_SSH_USER VPS_REPO_PATH; do
+            if [ -z "${!secret_name:-}" ]; then
+              echo "::error::Missing GitHub Actions secret: ${secret_name}"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Configure SSH
         shell: bash
         env:
@@ -29,21 +52,41 @@ jobs:
         run: |
           set -euo pipefail
 
-          : "${VPS_SSH_PRIVATE_KEY:?Missing VPS_SSH_PRIVATE_KEY secret}"
-          : "${VPS_SSH_HOST:?Missing VPS_SSH_HOST secret}"
+          ssh_port="${VPS_SSH_PORT:-22}"
 
           mkdir -p "$HOME/.ssh"
           chmod 700 "$HOME/.ssh"
 
-          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/vps_key"
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" | tr -d '\r' > "$HOME/.ssh/vps_key"
           chmod 600 "$HOME/.ssh/vps_key"
 
           if [ -n "${VPS_SSH_KNOWN_HOSTS:-}" ]; then
-            printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+            printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
           else
-            ssh-keyscan -p "${VPS_SSH_PORT:-22}" "$VPS_SSH_HOST" > "$HOME/.ssh/known_hosts"
+            ssh-keyscan -T 15 -p "$ssh_port" -H "$VPS_SSH_HOST" > "$HOME/.ssh/known_hosts"
           fi
           chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Test SSH connection
+        shell: bash
+        env:
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+        run: |
+          set -euo pipefail
+
+          ssh_port="${VPS_SSH_PORT:-22}"
+
+          ssh \
+            -i "$HOME/.ssh/vps_key" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "$ssh_port" \
+            "$VPS_SSH_USER@$VPS_SSH_HOST" \
+            'echo "SSH connection OK: $(hostname)"'
 
       - name: Pull pushed branch on VPS
         shell: bash
@@ -64,6 +107,7 @@ jobs:
           : "${PUSH_BRANCH:?Missing pushed branch}"
           : "${PUSH_SHA:?Missing pushed SHA}"
 
+          ssh_port="${VPS_SSH_PORT:-22}"
           printf -v REPO_PATH_Q '%q' "$VPS_REPO_PATH"
           printf -v AFTER_PULL_COMMAND_Q '%q' "${VPS_AFTER_PULL_COMMAND:-}"
           printf -v PUSH_BRANCH_Q '%q' "$PUSH_BRANCH"
@@ -72,7 +116,7 @@ jobs:
             -i "$HOME/.ssh/vps_key" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            -p "${VPS_SSH_PORT:-22}" \
+            -p "$ssh_port" \
             "$VPS_SSH_USER@$VPS_SSH_HOST" \
             "REPO_PATH=$REPO_PATH_Q VPS_AFTER_PULL_COMMAND=$AFTER_PULL_COMMAND_Q PUSH_BRANCH=$PUSH_BRANCH_Q PUSH_SHA=$PUSH_SHA bash -s" <<'REMOTE'
           set -euo pipefail

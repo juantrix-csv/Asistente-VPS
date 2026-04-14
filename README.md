@@ -77,6 +77,7 @@ python -m pytest -q
 ## Pull automatico en el VPS cuando se pushea a main
 El workflow `.github/workflows/vps-pull-on-push.yml` se ejecuta cada vez que se hace push a `main`.
 Entra por SSH al VPS, se mueve a la rama `main` y ejecuta `git pull --ff-only origin main`.
+Tambien se puede ejecutar manualmente desde `Actions > VPS pull on push > Run workflow`.
 
 Configura estos secretos en GitHub: `Settings > Secrets and variables > Actions`.
 
@@ -95,3 +96,10 @@ Requisitos en el VPS:
 - El remoto `origin` debe poder hacer `git fetch` desde GitHub.
 - El directorio debe estar limpio; si hay cambios locales sin commit, el workflow falla para no pisarlos.
 - Si queres que el bot tome los cambios sin reinicio manual, configura `VPS_AFTER_PULL_COMMAND` con el comando que reinicia el proceso del bot.
+
+Si falla:
+
+- `Missing GitHub Actions secret`: falta cargar ese secret en GitHub.
+- `ssh-keyscan`: el host o puerto SSH no responde desde GitHub Actions.
+- `Permission denied (publickey)`: la clave publica correspondiente a `VPS_SSH_PRIVATE_KEY` no esta en `~/.ssh/authorized_keys` del usuario `VPS_SSH_USER`.
+- `VPS repo has uncommitted changes`: hay cambios locales en el VPS y el workflow no los pisa.
