@@ -1,0 +1,39 @@
+{
+  "timezone": "UTC",
+  "habits": {
+    "wakeTime": "08:00",
+    "sleepTime": "00:00",
+    "impulseSpendLimitARS": 10000,
+    "riskWindow": "before_sleep"
+  },
+  "tasks": {
+    "morningRoutine": {
+      "time": "08:10",
+      "label": "Dientes + skincare AM",
+      "lastPromptAt": null,
+      "lastEscalationLevel": 0,
+      "completedAt": null
+    },
+    "nightGuard": {
+      "time": "23:00",
+      "label": "Modo anti recaída",
+      "lastPromptAt": null,
+      "lastEscalationLevel": 0,
+      "completedAt": null
+    },
+    "nightRoutine": {
+      "time": "23:10",
+      "label": "Dientes + skincare PM",
+      "lastPromptAt": null,
+      "lastEscalationLevel": 0,
+      "completedAt": null
+    },
+    "dailyClose": {
+      "time": "23:30",
+      "label": "Cierre del día",
+      "lastPromptAt": null,
+      "lastEscalationLevel": 0,
+      "completedAt": null
+    }
+  }
+}
