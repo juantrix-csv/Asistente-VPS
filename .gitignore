@@ -1,0 +1,6 @@
+.env
+*.log
+*.bak
+*.bak-*
+node_modules/
+obsidian-vault/

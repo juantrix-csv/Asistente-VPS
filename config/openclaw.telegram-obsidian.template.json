@@ -1,0 +1,62 @@
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "loopback",
+    "auth": {
+      "mode": "token",
+      "token": "__GATEWAY_TOKEN__"
+    }
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "allowFrom": [],
+      "groups": {
+        "*": {
+          "requireMention": true
+        }
+      },
+      "streaming": "partial",
+      "linkPreview": false,
+      "textChunkLimit": 3500
+    }
+  },
+  "plugins": {
+    "entries": {
+      "memory-wiki": {
+        "enabled": true,
+        "config": {
+          "vaultMode": "isolated",
+          "vault": {
+            "path": "__OBSIDIAN_VAULT_PATH__",
+            "renderMode": "obsidian"
+          },
+          "obsidian": {
+            "enabled": true,
+            "vaultName": "Clawd",
+            "useOfficialCli": false,
+            "openAfterWrites": false
+          },
+          "ingest": {
+            "autoCompile": true,
+            "maxConcurrentJobs": 1,
+            "allowUrlIngest": true
+          },
+          "search": {
+            "backend": "local",
+            "corpus": "wiki"
+          },
+          "context": {
+            "includeCompiledDigestPrompt": false
+          },
+          "render": {
+            "preserveHumanBlocks": true,
+            "createBacklinks": true,
+            "createDashboards": true
+          }
+        }
+      }
+    }
+  }
+}
