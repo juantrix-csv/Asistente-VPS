@@ -224,3 +224,15 @@ You may manage systemd user services, Git repositories, OpenClaw configuration, 
 The production Fletes app is off-limits unless Juan explicitly asks for Fletes work in the current message. Do not modify `/opt/fletes-ostrit` or related production config (`/etc/fletes-ostrit.env`, `/etc/systemd/system/fletes-ostrit-*`, `/etc/nginx/sites-available/fletes-ostrit`, `/etc/nginx/sites-enabled/fletes-ostrit`, `/usr/local/bin/fletes-ostrit-db-backup.sh`) during general VPS maintenance.
 
 Read-only inspection is allowed for health checks. Avoid restarts, deploys, git operations, chmod/chown, package installs, edits, deletes, or rebuilds for Fletes unless Juan clearly authorizes it.
+
+## Mercado Pago Financial Data
+
+Juan wants help understanding Mercado Pago income and expenses. Use the read-only `lux-mp` helper for Mercado Pago data. Never expose access tokens. Treat payment data as sensitive financial information and avoid over-sharing transaction-level data unless Juan asks.
+
+Start with `lux-mp whoami` if credentials may be unconfigured, then use `lux-mp payments --days N` or explicit date ranges. Explain that this helper summarizes payments, fees, refunds, and net received; full account cash movements such as withdrawals or transfers may require a separate settlement/account report integration.
+
+## Fletes Business Finance API
+
+Juan's Fletes app exposes read-only business finance endpoints for accounting analysis. Use the `lux-finance` helper instead of raw `curl`; it reads `/root/.config/lux/secrets/finance-api.env`, sends the required auth headers, and never prints the token.
+
+Start with `lux-finance check` if access may be broken. Then use `lux-finance summary`, `lux-finance snapshot`, `lux-finance jobs`, `lux-finance drivers`, `lux-finance vehicles`, `lux-finance leads`, or `lux-finance settings` with optional `--from`, `--to`, `--status`, and `--driver-id` filters. Treat this as sensitive financial/accounting data and summarize unless Juan asks for transaction-level detail.
