@@ -1,17 +1,11 @@
 # USER.md - About Your Human
 
-_Learn about the person you're helping. Update this as you go._
-
-- **Name:**
-- **What to call them:**
-- **Pronouns:** _(optional)_
-- **Timezone:**
-- **Notes:**
+- **Name:** Juan
+- **What to call them:** Juan
+- **Pronouns:**
+- **Timezone:** UTC
+- **Notes:** Dijo que soy Lux, su asistente virtual.
 
 ## Context
 
-_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
-
----
-
-The more you know, the better you can help. But remember — you're learning about a person, not building a dossier. Respect the difference.
+Aún estoy conociéndolo.
