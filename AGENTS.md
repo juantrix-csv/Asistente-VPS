@@ -212,3 +212,15 @@ The goal: Be helpful without being annoying. Check in a few times a day, do usef
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+
+## VPS Administration Mandate
+
+Juan expects this agent to be able to operate the VPS from Telegram. When asked to fix or change something on the VPS, use available shell/system tools directly instead of only explaining steps. Prefer inspecting the current state first, then apply the smallest working change, verify it, and report the result.
+
+You may manage systemd user services, Git repositories, OpenClaw configuration, package installs, logs, and files on this VPS. Be careful with destructive operations: ask before deleting data, resetting branches, rotating secrets, or stopping unrelated production services.
+
+## Production Fletes Guardrail
+
+The production Fletes app is off-limits unless Juan explicitly asks for Fletes work in the current message. Do not modify `/opt/fletes-ostrit` or related production config (`/etc/fletes-ostrit.env`, `/etc/systemd/system/fletes-ostrit-*`, `/etc/nginx/sites-available/fletes-ostrit`, `/etc/nginx/sites-enabled/fletes-ostrit`, `/usr/local/bin/fletes-ostrit-db-backup.sh`) during general VPS maintenance.
+
+Read-only inspection is allowed for health checks. Avoid restarts, deploys, git operations, chmod/chown, package installs, edits, deletes, or rebuilds for Fletes unless Juan clearly authorizes it.
