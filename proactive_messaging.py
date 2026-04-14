@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from typing import Iterable, Optional, Protocol
 
 DEFAULT_DB_PATH = os.environ.get("PROACTIVE_DB_PATH", "proactive_messages.db")
+DEFAULT_ASSISTANT_WORKDIR = os.environ.get("ASSISTANT_WORKDIR", os.getcwd())
 
 
 def utc_now_iso() -> str:
@@ -252,34 +253,91 @@ class TelegramAssistantLoop:
     3) ALWAYS sends completion/failure message
     """
 
-    def __init__(self, telegram: TelegramChannelAdapter, command_timeout: int = 120):
+    def __init__(
+        self,
+        telegram: TelegramChannelAdapter,
+        command_timeout: int = 120,
+        workdir: str = DEFAULT_ASSISTANT_WORKDIR,
+    ):
         self.telegram = telegram
         self.command_timeout = command_timeout
+        self.workdir = workdir
+
+    def _run_shell(self, cmd: str) -> str:
+        completed = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=self.workdir,
+            capture_output=True,
+            text=True,
+            timeout=self.command_timeout,
+        )
+        out = (completed.stdout or "").strip()
+        err = (completed.stderr or "").strip()
+        status = f"cwd={self.workdir}\nexit_code={completed.returncode}"
+        details = "\n".join(part for part in [out, err] if part)
+        details = details[:3000] if details else "(sin salida)"
+        return f"{status}\n{details}"
+
+    def _help_message(self) -> str:
+        return (
+            "Comandos disponibles:\n"
+            "- estado: muestra rama y cambios locales\n"
+            "- pull: actualiza el repo con git pull --ff-only\n"
+            "- test: corre python -m pytest -q\n"
+            "- version: muestra el ultimo commit\n"
+            "- /run <comando>: ejecuta un comando puntual\n"
+            f"\nCarpeta de trabajo: {self.workdir}"
+        )
 
     def process_request(self, text: str) -> str:
         stripped = text.strip()
+        normalized = stripped.lower()
         if stripped.startswith("/run "):
             cmd = stripped[5:].strip()
             if not cmd:
-                return "No se recibió comando para ejecutar."
-            completed = subprocess.run(
-                cmd,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=self.command_timeout,
-            )
-            out = (completed.stdout or "").strip()
-            err = (completed.stderr or "").strip()
-            status = f"exit_code={completed.returncode}"
-            details = "\n".join(part for part in [out, err] if part)
-            details = details[:3000] if details else "(sin salida)"
-            return f"{status}\n{details}"
+                return "No se recibio comando para ejecutar."
+            return self._run_shell(cmd)
+
+        if normalized in {"/help", "help", "ayuda"}:
+            return self._help_message()
+
+        if (
+            normalized in {"/status", "status", "estado"}
+            or "estado del repo" in normalized
+            or "como esta" in normalized
+            or "git status" in normalized
+        ):
+            return self._run_shell("git status --short --branch")
+
+        if (
+            normalized in {"/pull", "pull", "actualizar", "actualizate", "actualizalo", "actualizame"}
+            or "actualiza" in normalized
+            or "hacer pull" in normalized
+            or "hace pull" in normalized
+            or "git pull" in normalized
+            or "trae cambios" in normalized
+        ):
+            return self._run_shell("git pull --ff-only")
+
+        if (
+            normalized in {"/test", "test", "tests", "pytest", "proba"}
+            or "correr tests" in normalized
+            or "corre tests" in normalized
+            or "probar" in normalized
+        ):
+            return self._run_shell("python -m pytest -q")
+
+        if (
+            normalized in {"/version", "version", "commit", "ultimo commit"}
+            or "ultimo commit" in normalized
+            or "que version" in normalized
+        ):
+            return self._run_shell("git log -1 --oneline")
 
         return (
-            "Recibí tu solicitud. Para ejecución de comandos usa:\n"
-            "`/run <comando>`\n"
-            "Ejemplo: `/run git status --short`"
+            "Recibi tu solicitud, pero no reconoci el comando.\n\n"
+            f"{self._help_message()}"
         )
 
     def run_forever(self, poll_timeout: int = 30, idle_sleep: float = 1.0) -> None:
@@ -344,6 +402,11 @@ def parse_args() -> argparse.Namespace:
     tg_assistant = sub.add_parser("run-telegram-assistant", help="Poll Telegram and reply with completion")
     tg_assistant.add_argument("--poll-timeout", type=int, default=30)
     tg_assistant.add_argument("--command-timeout", type=int, default=120)
+    tg_assistant.add_argument(
+        "--workdir",
+        default=DEFAULT_ASSISTANT_WORKDIR,
+        help="Working directory for Telegram commands (or ASSISTANT_WORKDIR env)",
+    )
 
     return parser.parse_args()
 
@@ -389,7 +452,11 @@ def main() -> None:
 
     if args.command == "run-telegram-assistant":
         telegram = TelegramChannelAdapter(args.telegram_token)
-        assistant = TelegramAssistantLoop(telegram=telegram, command_timeout=args.command_timeout)
+        assistant = TelegramAssistantLoop(
+            telegram=telegram,
+            command_timeout=args.command_timeout,
+            workdir=args.workdir,
+        )
         assistant.run_forever(poll_timeout=args.poll_timeout)
 
 

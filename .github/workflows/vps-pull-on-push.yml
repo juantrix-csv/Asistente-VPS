@@ -1,0 +1,104 @@
+name: VPS pull on push
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-pull-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  pull-on-vps:
+    name: Pull pushed branch on VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          : "${VPS_SSH_PRIVATE_KEY:?Missing VPS_SSH_PRIVATE_KEY secret}"
+          : "${VPS_SSH_HOST:?Missing VPS_SSH_HOST secret}"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$VPS_SSH_PRIVATE_KEY" > "$HOME/.ssh/vps_key"
+          chmod 600 "$HOME/.ssh/vps_key"
+
+          if [ -n "${VPS_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "$VPS_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          else
+            ssh-keyscan -p "${VPS_SSH_PORT:-22}" "$VPS_SSH_HOST" > "$HOME/.ssh/known_hosts"
+          fi
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Pull pushed branch on VPS
+        shell: bash
+        env:
+          VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+          VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_REPO_PATH: ${{ secrets.VPS_REPO_PATH }}
+          VPS_AFTER_PULL_COMMAND: ${{ secrets.VPS_AFTER_PULL_COMMAND }}
+          PUSH_BRANCH: ${{ github.ref_name }}
+          PUSH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          : "${VPS_SSH_USER:?Missing VPS_SSH_USER secret}"
+          : "${VPS_SSH_HOST:?Missing VPS_SSH_HOST secret}"
+          : "${VPS_REPO_PATH:?Missing VPS_REPO_PATH secret}"
+          : "${PUSH_BRANCH:?Missing pushed branch}"
+          : "${PUSH_SHA:?Missing pushed SHA}"
+
+          printf -v REPO_PATH_Q '%q' "$VPS_REPO_PATH"
+          printf -v AFTER_PULL_COMMAND_Q '%q' "${VPS_AFTER_PULL_COMMAND:-}"
+          printf -v PUSH_BRANCH_Q '%q' "$PUSH_BRANCH"
+
+          ssh \
+            -i "$HOME/.ssh/vps_key" \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "${VPS_SSH_PORT:-22}" \
+            "$VPS_SSH_USER@$VPS_SSH_HOST" \
+            "REPO_PATH=$REPO_PATH_Q VPS_AFTER_PULL_COMMAND=$AFTER_PULL_COMMAND_Q PUSH_BRANCH=$PUSH_BRANCH_Q PUSH_SHA=$PUSH_SHA bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$REPO_PATH"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "VPS repo has uncommitted changes. Commit or stash them before auto-pull."
+            git status --short
+            exit 1
+          fi
+
+          git fetch origin "$PUSH_BRANCH"
+          git checkout "$PUSH_BRANCH"
+          git pull --ff-only origin "$PUSH_BRANCH"
+
+          current_sha="$(git rev-parse HEAD)"
+          if [ "$current_sha" != "$PUSH_SHA" ]; then
+            echo "Expected push SHA $PUSH_SHA but VPS is at $current_sha"
+            exit 1
+          fi
+
+          if [ -n "${VPS_AFTER_PULL_COMMAND:-}" ]; then
+            echo "Running VPS_AFTER_PULL_COMMAND"
+            bash -lc "$VPS_AFTER_PULL_COMMAND"
+          fi
+
+          echo "VPS repo is on ${PUSH_BRANCH} at ${current_sha}"
+          REMOTE
