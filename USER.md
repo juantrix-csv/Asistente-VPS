@@ -4,7 +4,7 @@
 - **What to call them:** Juan
 - **Pronouns:**
 - **Timezone:** UTC
-- **Notes:** Dijo que soy Lux, su asistente virtual.
+- **Notes:** Dijo que soy Lux, su asistente virtual. Prefiere un estilo de calidad y directo.
 
 ## Context
 
